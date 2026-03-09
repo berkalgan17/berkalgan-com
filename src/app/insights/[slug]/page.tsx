@@ -532,7 +532,7 @@ export default function InsightArticlePage({ params }: { params: Promise<{ slug:
                         <p className="text-slate-400 text-lg mb-8 max-w-xl mx-auto">
                             Apply this framework to your organization and see the results. We help high-growth startups implement modern GRC without the friction.
                         </p>
-                        <Button href="mailto:berk@virtualcyberriskoffice.com" target="_blank" size="lg" className="px-12">
+                        <Button href="/contact" size="lg" className="px-12">
                             Request Strategy Call
                         </Button>
                     </div>

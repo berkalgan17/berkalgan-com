@@ -2,27 +2,49 @@
 
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { Send, CheckCircle2 } from "lucide-react";
+import { Send, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+
+const FORMSPREE_ENDPOINT = "https://formspree.io/f/mpqyqdkz";
 
 export function ContactForm() {
     const form = useRef<HTMLFormElement>(null);
-    const [status, setStatus] = useState<"idle" | "success">("idle");
+    const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+    const [errorMessage, setErrorMessage] = useState("");
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
         if (!form.current) return;
 
+        setStatus("loading");
+        setErrorMessage("");
+
         const formData = new FormData(form.current);
-        const name = formData.get("user_name");
-        const email = formData.get("user_email");
-        const subject = formData.get("subject");
-        const message = formData.get("message");
+        const data = {
+            name: formData.get("user_name"),
+            email: formData.get("user_email"),
+            subject: formData.get("subject"),
+            message: formData.get("message"),
+        };
 
-        const mailtoLink = `mailto:berk@virtualcyberriskoffice.com?subject=${encodeURIComponent(`${subject} Inquiry from ${name}`)}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`)}`;
+        try {
+            const response = await fetch(FORMSPREE_ENDPOINT, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Accept: "application/json" },
+                body: JSON.stringify(data),
+            });
 
-        window.open(mailtoLink, '_blank');
-        setStatus("success");
+            if (response.ok) {
+                setStatus("success");
+                form.current.reset();
+            } else {
+                const result = await response.json();
+                setErrorMessage(result?.errors?.[0]?.message || "Something went wrong. Please try again.");
+                setStatus("error");
+            }
+        } catch {
+            setErrorMessage("Network error. Please check your connection and try again.");
+            setStatus("error");
+        }
     };
 
     if (status === "success") {
@@ -50,6 +72,32 @@ export function ContactForm() {
                     className="text-teal-400 hover:text-teal-300 font-semibold transition-colors"
                 >
                     Send another message
+                </button>
+            </motion.div>
+        );
+    }
+
+    if (status === "error") {
+        return (
+            <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-navy-800 border border-red-500/30 p-12 rounded-2xl text-center shadow-xl"
+            >
+                <div className="flex justify-center mb-6">
+                    <div className="bg-red-500/10 p-4 rounded-full">
+                        <AlertCircle size={64} className="text-red-400" />
+                    </div>
+                </div>
+                <h3 className="text-3xl font-bold text-white mb-4">Something Went Wrong</h3>
+                <p className="text-slate-400 text-lg mb-8">
+                    {errorMessage}
+                </p>
+                <button
+                    onClick={() => setStatus("idle")}
+                    className="text-teal-400 hover:text-teal-300 font-semibold transition-colors"
+                >
+                    Try again
                 </button>
             </motion.div>
         );
@@ -111,10 +159,20 @@ export function ContactForm() {
 
             <button
                 type="submit"
-                className="w-full bg-teal-500 hover:bg-teal-400 text-navy-900 font-bold py-4 rounded-lg transition-all flex items-center justify-center gap-2 group"
+                disabled={status === "loading"}
+                className="w-full bg-teal-500 hover:bg-teal-400 text-navy-900 font-bold py-4 rounded-lg transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-teal-500"
             >
-                Send Message
-                <Send size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                {status === "loading" ? (
+                    <>
+                        Sending...
+                        <Loader2 size={18} className="animate-spin" />
+                    </>
+                ) : (
+                    <>
+                        Send Message
+                        <Send size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                    </>
+                )}
             </button>
 
             <p className="text-center text-slate-500 text-xs mt-4">

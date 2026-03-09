@@ -123,7 +123,7 @@ export default function SuccessStoriesPage() {
                     className="mt-20 text-center"
                 >
                     <h2 className="text-2xl text-white font-semibold mb-6">Ready to write your own success story?</h2>
-                    <Button href="mailto:berk@virtualcyberriskoffice.com" target="_blank" className="px-8 py-4 text-lg">Start Your Journey</Button>
+                    <Button href="/contact" className="px-8 py-4 text-lg">Start Your Journey</Button>
                 </motion.div>
             </div>
         </div>

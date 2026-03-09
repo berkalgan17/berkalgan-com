@@ -147,7 +147,7 @@ export default function Home() {
         <p className="text-slate-400 text-lg mb-10 max-w-xl mx-auto">
           Get in touch today for a preliminary risk assessment and see how our vCISO model can accelerate your roadmap.
         </p>
-        <Button href="mailto:berk@virtualcyberriskoffice.com" target="_blank" size="lg" className="px-12">
+        <Button href="/contact" size="lg" className="px-12">
           Get Started
         </Button>
       </section>
