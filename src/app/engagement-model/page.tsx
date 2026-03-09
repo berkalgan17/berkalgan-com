@@ -108,7 +108,7 @@ export default function EngagementModelPage() {
                         we have a tailored solution for you.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Button href="mailto:berk@virtualcyberriskoffice.com" size="lg" className="w-full sm:w-auto text-lg px-8 py-6">
+                        <Button href="/contact" size="lg" className="w-full sm:w-auto text-lg px-8 py-6">
                             Schedule a Consultation
                         </Button>
                         <Button

@@ -53,7 +53,7 @@ export function Navbar() {
                             {link.name}
                         </Link>
                     ))}
-                    <Button href="mailto:berk@virtualcyberriskoffice.com" target="_blank" variant="outline" className="px-4 py-2 text-sm">
+                    <Button href="/contact" variant="outline" className="px-4 py-2 text-sm">
                         Contact Us
                     </Button>
                 </nav>
@@ -88,7 +88,7 @@ export function Navbar() {
                                     {link.name}
                                 </Link>
                             ))}
-                            <Button href="mailto:berk@virtualcyberriskoffice.com" target="_blank" variant="outline" className="w-full">
+                            <Button href="/contact" variant="outline" className="w-full" onClick={() => setIsMobileMenuOpen(false)}>
                                 Contact Us
                             </Button>
                         </div>
