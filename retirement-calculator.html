@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retirement Calculator</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e4e4e7;
+    --muted: #9ca3af;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --green: #22c55e;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --purple: #a855f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5;
+    min-height: 100vh; padding: 2rem 1rem;
+  }
+  .container { max-width: 1120px; margin: 0 auto; }
+  h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: .25rem; text-align: center; }
+  .subtitle { text-align: center; color: var(--muted); font-size: .9rem; margin-bottom: 2rem; }
+  .grid { display: grid; grid-template-columns: 395px 1fr; gap: 1.5rem; align-items: start; }
+  @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+  .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1.25rem; padding-bottom: .75rem; border-bottom: 1px solid var(--border); }
+  .field { margin-bottom: 1.25rem; }
+  .field:last-child { margin-bottom: 0; }
+  .field-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: .4rem; }
+  .field label { font-size: .82rem; color: var(--muted); }
+  .field .value { font-size: .85rem; font-weight: 600; color: var(--accent2); min-width: 70px; text-align: right; }
+  input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: var(--border); outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid var(--bg); box-shadow: 0 0 0 2px var(--accent); }
+  input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid var(--bg); box-shadow: 0 0 0 2px var(--accent); }
+
+  /* Allocation */
+  .alloc-group { margin-bottom: 1rem; }
+  .alloc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .35rem; }
+  .alloc-header label { font-size: .82rem; color: var(--muted); }
+  .alloc-header .value { font-size: .85rem; font-weight: 600; }
+  .alloc-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin-top: .75rem; margin-bottom: .25rem; }
+  .alloc-bar div { transition: width .15s; }
+  .alloc-legend { display: flex; gap: .75rem; flex-wrap: wrap; font-size: .75rem; color: var(--muted); margin-top: .35rem; }
+  .alloc-legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+  .alloc-legend .l-stocks::before { background: var(--accent); }
+  .alloc-legend .l-bonds::before { background: var(--green); }
+  .alloc-legend .l-privates::before { background: var(--purple); }
+  .alloc-legend .l-cash::before { background: var(--amber); }
+
+  .alloc-total { display: flex; justify-content: space-between; align-items: center; margin-top: .6rem; padding-top: .6rem; border-top: 1px solid var(--border); font-size: .82rem; }
+  .alloc-total .total-label { color: var(--muted); }
+  .alloc-total .total-value { font-weight: 700; font-size: .9rem; }
+  .alloc-warning { display: none; align-items: center; gap: .5rem; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: .6rem .85rem; margin-top: .75rem; font-size: .78rem; color: var(--red); line-height: 1.4; }
+  .alloc-warning.visible { display: flex; }
+  .alloc-warning svg { flex-shrink: 0; }
+
+  /* Collapsible sub-panels (shared) */
+  .sub-toggle { display: flex; align-items: center; gap: .4rem; margin-top: .35rem; cursor: pointer; font-size: .75rem; user-select: none; opacity: .85; transition: opacity .15s; }
+  .sub-toggle:hover { opacity: 1; }
+  .sub-toggle .chevron { display: inline-block; transition: transform .2s; font-size: .65rem; }
+  .sub-toggle.open .chevron { transform: rotate(90deg); }
+  .sub-panel { max-height: 0; overflow: hidden; transition: max-height .3s ease, opacity .2s; opacity: 0; }
+  .sub-panel.open { max-height: 800px; opacity: 1; }
+  .sub-inner { padding: .65rem .75rem .5rem; margin-top: .5rem; border-radius: 8px; }
+  .sub-inner.stocks-bg { background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15); }
+  .sub-inner.bonds-bg  { background: rgba(34,197,94,0.06);  border: 1px solid rgba(34,197,94,0.15); }
+  .sub-inner.priv-bg   { background: rgba(168,85,247,0.06); border: 1px solid rgba(168,85,247,0.15); }
+  .sub-asset { display: flex; align-items: center; gap: .5rem; margin-bottom: .6rem; }
+  .sub-asset:last-child { margin-bottom: 0; }
+  .sub-asset input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+  .sub-asset-label { font-size: .78rem; color: var(--muted); min-width: 110px; flex-shrink: 0; }
+  .sub-asset input[type=range] { flex: 1; height: 4px; }
+  .sub-asset .sub-pct { font-size: .75rem; font-weight: 600; min-width: 32px; text-align: right; }
+  .sub-note { font-size: .68rem; color: var(--muted); opacity: .7; margin-top: .5rem; line-height: 1.4; }
+
+  /* Assumptions card */
+  .assume-table { width: 100%; border-collapse: collapse; font-size: .78rem; margin-bottom: .75rem; }
+  .assume-table th { text-align: left; color: var(--muted); font-weight: 500; font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; padding: .35rem .25rem; border-bottom: 1px solid var(--border); }
+  .assume-table td { padding: .35rem .25rem; }
+  .assume-table .asset-name { font-weight: 500; white-space: nowrap; }
+  .assume-table .dot { display: inline-block; width: 7px; height: 7px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  .assume-edit-section { background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15); border-radius: 8px; padding: .65rem .75rem .5rem; margin-top: .5rem; }
+  .assume-edit-section h3 { font-size: .78rem; font-weight: 600; margin-bottom: .5rem; color: var(--text); }
+  .assume-row { display: grid; grid-template-columns: 80px 1fr 44px; align-items: center; gap: .35rem; margin-bottom: .4rem; }
+  .assume-row label { font-size: .75rem; color: var(--muted); }
+  .assume-row input[type=range] { height: 4px; }
+  .assume-row .av { font-size: .75rem; font-weight: 600; color: var(--accent2); text-align: right; }
+  .assume-divider { border: none; border-top: 1px solid var(--border); margin: .55rem 0; }
+  .assume-reset { background: none; border: 1px solid var(--border); color: var(--muted); font-size: .72rem; padding: .3rem .7rem; border-radius: 5px; cursor: pointer; margin-top: .4rem; transition: all .15s; }
+  .assume-reset:hover { border-color: var(--accent); color: var(--accent2); }
+
+  /* Factor tilts */
+  .factor-group { margin-bottom: .85rem; }
+  .factor-group:last-of-type { margin-bottom: .25rem; }
+  .factor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .2rem; }
+  .factor-header label { font-size: .8rem; color: var(--muted); }
+  .factor-header .factor-val { font-size: .82rem; font-weight: 600; min-width: 50px; text-align: right; }
+  .factor-desc { font-size: .68rem; color: var(--muted); opacity: .7; margin-bottom: .35rem; line-height: 1.35; }
+  .factor-slider { position: relative; }
+  .factor-slider input[type=range] { position: relative; z-index: 1; }
+  .factor-zero { position: absolute; left: 50%; top: 0; width: 1px; height: 6px; background: var(--muted); opacity: .5; z-index: 0; }
+  .factor-impact { background: var(--bg); border-radius: 8px; padding: .75rem; margin-top: .75rem; }
+  .factor-impact-title { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: .4rem; }
+  .factor-impact-row { display: flex; justify-content: space-between; font-size: .78rem; margin-bottom: .2rem; }
+  .factor-impact-row .fi-label { color: var(--muted); }
+  .factor-impact-row .fi-val { font-weight: 600; }
+  .factor-note { font-size: .66rem; color: var(--muted); opacity: .6; margin-top: .6rem; line-height: 1.4; }
+
+  /* Results */
+  .results-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; margin-bottom: 1.25rem; }
+  .stat-card { background: var(--bg); border-radius: 10px; padding: 1rem; text-align: center; }
+  .stat-card .stat-label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .3rem; }
+  .stat-card .stat-value { font-size: 1.35rem; font-weight: 700; }
+  .stat-card .stat-sub { font-size: .72rem; color: var(--muted); margin-top: .15rem; }
+  .success { color: var(--green); }
+  .danger { color: var(--red); }
+  .warning { color: var(--amber); }
+  .neutral { color: var(--accent2); }
+  .chart-container { position: relative; background: var(--bg); border-radius: 10px; padding: 1rem; height: 320px; }
+  canvas { width: 100% !important; height: 100% !important; }
+  .scenario-table { width: 100%; border-collapse: collapse; font-size: .8rem; margin-top: 1rem; }
+  .scenario-table th { text-align: left; color: var(--muted); font-weight: 500; padding: .5rem .75rem; border-bottom: 1px solid var(--border); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
+  .scenario-table td { padding: .5rem .75rem; border-bottom: 1px solid var(--border); }
+  .scenario-table tr:last-child td { border-bottom: none; }
+  .footer { text-align: center; color: var(--muted); font-size: .72rem; margin-top: 2rem; opacity: .7; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Retirement Calculator</h1>
+  <p class="subtitle">Monte Carlo simulation with 1,000 trials</p>
+
+  <div class="grid">
+    <!-- LEFT COLUMN -->
+    <div>
+      <!-- Portfolio & Withdrawals -->
+      <div class="card" style="margin-bottom:1.25rem">
+        <h2>Portfolio &amp; Withdrawals</h2>
+        <div class="field">
+          <div class="field-row"><label>Starting Portfolio</label><span class="value" id="v-portfolio">$1,000,000</span></div>
+          <input type="range" id="portfolio" min="100000" max="10000000" step="50000" value="1000000">
+        </div>
+        <div class="field">
+          <div class="field-row"><label>Annual Withdrawal Rate</label><span class="value" id="v-swr">4.0%</span></div>
+          <input type="range" id="swr" min="1" max="8" step="0.25" value="4">
+        </div>
+        <div class="field">
+          <div class="field-row"><label>Retirement Length (years)</label><span class="value" id="v-years">30</span></div>
+          <input type="range" id="years" min="10" max="60" step="1" value="30">
+        </div>
+        <div class="field">
+          <div class="field-row"><label>Annual Inflation</label><span class="value" id="v-inflation">2.5%</span></div>
+          <input type="range" id="inflation" min="0" max="6" step="0.25" value="2.5">
+        </div>
+      </div>
+
+      <!-- Asset Allocation -->
+      <div class="card" style="margin-bottom:1.25rem">
+        <h2>Asset Allocation</h2>
+
+        <!-- STOCKS -->
+        <div class="alloc-group">
+          <div class="alloc-header"><label>Stocks</label><span class="value" id="v-stocks" style="color:var(--accent2)">60%</span></div>
+          <input type="range" id="stocks" min="0" max="100" step="1" value="60">
+          <div class="sub-toggle" style="color:var(--accent2)" onclick="toggle('stocks-sub')"><span class="chevron">&#9654;</span> Customize stock mix</div>
+          <div class="sub-panel" id="stocks-sub">
+            <div class="sub-inner stocks-bg" id="stocks-sub-inner"></div>
+          </div>
+        </div>
+
+        <!-- BONDS -->
+        <div class="alloc-group">
+          <div class="alloc-header"><label>Bonds</label><span class="value" id="v-bonds" style="color:var(--green)">25%</span></div>
+          <input type="range" id="bonds" min="0" max="100" step="1" value="25">
+          <div class="sub-toggle" style="color:var(--green)" onclick="toggle('bonds-sub')"><span class="chevron">&#9654;</span> Customize bond mix</div>
+          <div class="sub-panel" id="bonds-sub">
+            <div class="sub-inner bonds-bg" id="bonds-sub-inner"></div>
+          </div>
+        </div>
+
+        <!-- PRIVATES -->
+        <div class="alloc-group">
+          <div class="alloc-header"><label>Private Alternatives</label><span class="value" id="v-privates" style="color:var(--purple)">10%</span></div>
+          <input type="range" id="privates" min="0" max="100" step="1" value="10">
+          <div class="sub-toggle" style="color:var(--purple)" onclick="toggle('priv-sub')"><span class="chevron">&#9654;</span> Customize private mix</div>
+          <div class="sub-panel" id="priv-sub">
+            <div class="sub-inner priv-bg" id="priv-sub-inner"></div>
+          </div>
+        </div>
+
+        <!-- CASH -->
+        <div class="alloc-group">
+          <div class="alloc-header"><label>Cash</label><span class="value" id="v-cash" style="color:var(--amber)">5%</span></div>
+          <input type="range" id="cash" min="0" max="100" step="1" value="5">
+        </div>
+
+        <div class="alloc-bar">
+          <div id="bar-stocks" style="width:60%;background:var(--accent)"></div>
+          <div id="bar-bonds" style="width:25%;background:var(--green)"></div>
+          <div id="bar-privates" style="width:10%;background:var(--purple)"></div>
+          <div id="bar-cash" style="width:5%;background:var(--amber)"></div>
+        </div>
+        <div class="alloc-legend">
+          <span class="l-stocks">Stocks</span>
+          <span class="l-bonds">Bonds</span>
+          <span class="l-privates">Privates</span>
+          <span class="l-cash">Cash</span>
+        </div>
+        <div class="alloc-total">
+          <span class="total-label">Total Allocation</span>
+          <span class="total-value" id="alloc-total-value">100%</span>
+        </div>
+        <div class="alloc-warning" id="alloc-warning">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L1 13.5h14L8 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.5" r=".7" fill="currentColor"/></svg>
+          <span id="alloc-warning-text"></span>
+        </div>
+      </div>
+
+      <!-- Factor Tilts -->
+      <div class="card" style="margin-bottom:1.25rem">
+        <h2>Factor Tilts <span style="font-size:.72rem;font-weight:400;color:var(--muted)">(Fama-French 5)</span></h2>
+        <div class="factor-group">
+          <div class="factor-header"><label>Market (Mkt-RF)</label><span class="factor-val" id="fv-mkt" style="color:var(--accent2)">0%</span></div>
+          <div class="factor-desc">Equity risk premium over risk-free. +100% = full beta, -100% = fully hedged.</div>
+          <div class="factor-slider"><div class="factor-zero"></div><input type="range" id="f-mkt" min="-100" max="100" step="5" value="0"></div>
+        </div>
+        <div class="factor-group">
+          <div class="factor-header"><label>Size (SMB)</label><span class="factor-val" id="fv-smb" style="color:var(--accent2)">0%</span></div>
+          <div class="factor-desc">Small minus big. Positive = tilt toward small caps for higher expected return + volatility.</div>
+          <div class="factor-slider"><div class="factor-zero"></div><input type="range" id="f-smb" min="-100" max="100" step="5" value="0"></div>
+        </div>
+        <div class="factor-group">
+          <div class="factor-header"><label>Value (HML)</label><span class="factor-val" id="fv-hml" style="color:var(--accent2)">0%</span></div>
+          <div class="factor-desc">High minus low book-to-market. Positive = tilt toward value stocks.</div>
+          <div class="factor-slider"><div class="factor-zero"></div><input type="range" id="f-hml" min="-100" max="100" step="5" value="0"></div>
+        </div>
+        <div class="factor-group">
+          <div class="factor-header"><label>Profitability (RMW)</label><span class="factor-val" id="fv-rmw" style="color:var(--accent2)">0%</span></div>
+          <div class="factor-desc">Robust minus weak operating profitability. Positive = tilt toward profitable firms.</div>
+          <div class="factor-slider"><div class="factor-zero"></div><input type="range" id="f-rmw" min="-100" max="100" step="5" value="0"></div>
+        </div>
+        <div class="factor-group">
+          <div class="factor-header"><label>Investment (CMA)</label><span class="factor-val" id="fv-cma" style="color:var(--accent2)">0%</span></div>
+          <div class="factor-desc">Conservative minus aggressive investment. Positive = tilt toward low-investment firms.</div>
+          <div class="factor-slider"><div class="factor-zero"></div><input type="range" id="f-cma" min="-100" max="100" step="5" value="0"></div>
+        </div>
+        <div class="factor-impact" id="factor-impact">
+          <div class="factor-impact-title">Net Factor Impact on Stocks</div>
+          <div class="factor-impact-row"><span class="fi-label">Return adjustment</span><span class="fi-val" id="fi-return">+0.0%</span></div>
+          <div class="factor-impact-row"><span class="fi-label">Volatility adjustment</span><span class="fi-val" id="fi-vol">+0.0%</span></div>
+        </div>
+        <p class="factor-note">Factor tilts modify the stock allocation's return and volatility assumptions. Based on long-run Fama-French factor premia estimates. 0% = no tilt (market portfolio). Applies proportionally to your stock allocation weight.</p>
+      </div>
+
+      <!-- Return Assumptions -->
+      <div class="card">
+        <h2>Return Assumptions</h2>
+        <table class="assume-table">
+          <thead><tr><th>Asset Class</th><th>Mean Return</th><th>Volatility</th></tr></thead>
+          <tbody id="assume-summary"></tbody>
+        </table>
+        <div class="sub-toggle" style="color:var(--accent2)" onclick="toggle('assume-panel')"><span class="chevron">&#9654;</span> Customize return assumptions</div>
+        <div class="sub-panel" id="assume-panel">
+          <div class="assume-edit-section" id="assume-edit-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div>
+      <div class="card" style="margin-bottom:1.25rem">
+        <h2>Simulation Results</h2>
+        <div class="results-grid">
+          <div class="stat-card"><div class="stat-label">Success Rate</div><div class="stat-value" id="r-success">—</div><div class="stat-sub">of 1,000 trials</div></div>
+          <div class="stat-card"><div class="stat-label">Median End Balance</div><div class="stat-value neutral" id="r-median">—</div><div class="stat-sub" id="r-median-real">real dollars</div></div>
+          <div class="stat-card"><div class="stat-label">Annual Withdrawal</div><div class="stat-value neutral" id="r-withdrawal">—</div><div class="stat-sub">year 1 (nominal)</div></div>
+        </div>
+        <div class="chart-container"><canvas id="chart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Scenario Analysis</h2>
+        <table class="scenario-table">
+          <thead><tr><th>Percentile</th><th>End Balance</th><th>Worst Year</th><th>Ran Out?</th></tr></thead>
+          <tbody id="scenario-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <p class="footer">For illustrative purposes only. Not financial advice. Past performance does not guarantee future results.</p>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  DATA-DRIVEN CONFIG — single source of truth
+// ═══════════════════════════════════════════════════════
+const CLASSES = {
+  stocks: {
+    label: 'Stocks', color: 'var(--accent)', defaultMean: 10, defaultStd: 18, defaultAlloc: 60,
+    subs: {
+      us_lc:   { label: 'US Large Cap',    mean: 10,  std: 16, on: true,  wt: 37 },
+      us_sc:   { label: 'US Small Cap',    mean: 12,  std: 22, on: false, wt: 8 },
+      intl_dev:{ label: 'Int\'l Developed', mean: 8,   std: 18, on: true,  wt: 23 },
+      em:      { label: 'Emerging Markets', mean: 10,  std: 25, on: false, wt: 5 },
+      reit:    { label: 'REITs',            mean: 9,   std: 20, on: false, wt: 5 },
+    }
+  },
+  bonds: {
+    label: 'Bonds', color: 'var(--green)', defaultMean: 4.5, defaultStd: 6, defaultAlloc: 25,
+    subs: {
+      us_agg:  { label: 'US Aggregate',    mean: 4.5, std: 5,  on: true,  wt: 15 },
+      us_treas:{ label: 'US Treasuries',   mean: 3.5, std: 7,  on: true,  wt: 10 },
+      tips:    { label: 'TIPS',             mean: 3,   std: 4,  on: false, wt: 5 },
+      corp_ig: { label: 'Corp Investment Grade', mean: 5, std: 7, on: false, wt: 5 },
+      corp_hy: { label: 'Corp High Yield',  mean: 7,   std: 12, on: false, wt: 3 },
+      intl_bond:{ label: 'Int\'l Bonds',    mean: 3.5, std: 8,  on: false, wt: 3 },
+    }
+  },
+  privates: {
+    label: 'Private Alternatives', color: 'var(--purple)', defaultMean: 12, defaultStd: 25, defaultAlloc: 10,
+    subs: {
+      vc:     { label: 'Venture Capital',  mean: 18, std: 35, on: true,  wt: 2 },
+      pe:     { label: 'Private Equity',   mean: 14, std: 22, on: true,  wt: 3 },
+      hf:     { label: 'Hedge Funds',      mean: 8,  std: 12, on: true,  wt: 2 },
+      pc:     { label: 'Private Credit',   mean: 9,  std: 8,  on: true,  wt: 3 },
+      re:     { label: 'RE Syndication',   mean: 11, std: 16, on: false, wt: 2 },
+      crypto: { label: 'Crypto',           mean: 20, std: 65, on: false, wt: 1 },
+    }
+  },
+  cash: {
+    label: 'Cash', color: 'var(--amber)', defaultMean: 2.5, defaultStd: 1, defaultAlloc: 5,
+    subs: {}
+  }
+};
+
+const NUM_TRIALS = 1000;
+const $ = id => document.getElementById(id);
+
+// ═══════════════════════════════════════════════════════
+//  BUILD SUB-PANELS AND ASSUMPTION EDITORS DYNAMICALLY
+// ═══════════════════════════════════════════════════════
+const classKeys = Object.keys(CLASSES);
+// Runtime refs
+const subRefs = {};   // subRefs.stocks.us_lc = { chk, wt, pct }
+const aRefs = {};     // aRefs.stocks = { mean: slider, std: slider, meanV, stdV }
+const paRefs = {};    // paRefs.stocks.us_lc = { mean, std, meanV, stdV }
+
+classKeys.forEach(cls => {
+  const C = CLASSES[cls];
+  const subs = C.subs;
+  const subContainer = $(`${cls === 'privates' ? 'priv' : cls}-sub-inner`);
+  subRefs[cls] = {};
+
+  // Build allocation sub-type checkboxes + sliders
+  if (subContainer) {
+    const sKeys = Object.keys(subs);
+    sKeys.forEach(sk => {
+      const s = subs[sk];
+      const id = `${cls}-${sk}`;
+      const div = document.createElement('div');
+      div.className = 'sub-asset';
+      div.innerHTML = `
+        <input type="checkbox" id="chk-${id}" ${s.on ? 'checked' : ''}>
+        <span class="sub-asset-label">${s.label}</span>
+        <input type="range" id="wt-${id}" min="0" max="100" step="1" value="${s.wt}">
+        <span class="sub-pct" id="pct-${id}">${s.wt}%</span>`;
+      subContainer.appendChild(div);
+      subRefs[cls][sk] = {
+        chk: $(`chk-${id}`),
+        wt: $(`wt-${id}`),
+        pct: $(`pct-${id}`)
+      };
+    });
+    const note = document.createElement('p');
+    note.className = 'sub-note';
+    note.textContent = 'Values are portfolio %. Parent slider updates automatically. Other classes rebalance to keep total at 100%.';
+    subContainer.appendChild(note);
+  }
+});
+
+// Build assumption summary table + edit sliders
+const summaryBody = $('assume-summary');
+const editBody = $('assume-edit-body');
+
+classKeys.forEach(cls => {
+  const C = CLASSES[cls];
+  // Summary row
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="asset-name"><span class="dot" style="background:${C.color}"></span>${C.label}${Object.keys(C.subs).length ? ' (blend)' : ''}</td><td id="td-${cls}-mean">${C.defaultMean.toFixed(1)}%</td><td id="td-${cls}-std">${C.defaultStd.toFixed(1)}%</td>`;
+  summaryBody.appendChild(tr);
+
+  // Edit section — top-level mean/std only for classes without subs (cash)
+  const hasSubs = Object.keys(C.subs).length > 0;
+  let html = `<h3>${C.label}</h3>`;
+
+  if (!hasSubs) {
+    html += `
+      <div class="assume-row"><label>Mean</label><input type="range" id="a-${cls}-mean" min="-5" max="20" step="0.25" value="${C.defaultMean}"><span class="av" id="av-${cls}-mean">${C.defaultMean.toFixed(1)}%</span></div>
+      <div class="assume-row"><label>Volatility</label><input type="range" id="a-${cls}-std" min="0" max="40" step="0.5" value="${C.defaultStd}"><span class="av" id="av-${cls}-std">${C.defaultStd.toFixed(1)}%</span></div>`;
+  } else {
+    html += `<div style="font-size:.7rem;color:var(--muted);margin-bottom:.5rem">Blended from enabled sub-types below:</div>`;
+    Object.entries(C.subs).forEach(([sk, s]) => {
+      const id = `${cls}-${sk}`;
+      html += `
+        <div style="font-size:.74rem;color:var(--muted);font-weight:500;margin-bottom:.25rem;margin-top:.4rem">${s.label}</div>
+        <div class="assume-row"><label>Mean</label><input type="range" id="pa-${id}-mean" min="-10" max="40" step="0.5" value="${s.mean}"><span class="av" id="pav-${id}-mean">${s.mean.toFixed(1)}%</span></div>
+        <div class="assume-row"><label>Vol</label><input type="range" id="pa-${id}-std" min="0" max="80" step="0.5" value="${s.std}"><span class="av" id="pav-${id}-std">${s.std.toFixed(1)}%</span></div>`;
+    });
+  }
+  html += '<hr class="assume-divider">';
+  editBody.insertAdjacentHTML('beforeend', html);
+
+  // Store refs
+  if (!hasSubs) {
+    aRefs[cls] = {
+      mean: $(`a-${cls}-mean`), std: $(`a-${cls}-std`),
+      meanV: $(`av-${cls}-mean`), stdV: $(`av-${cls}-std`)
+    };
+  }
+  paRefs[cls] = {};
+  Object.keys(C.subs).forEach(sk => {
+    const id = `${cls}-${sk}`;
+    paRefs[cls][sk] = {
+      mean: $(`pa-${id}-mean`), std: $(`pa-${id}-std`),
+      meanV: $(`pav-${id}-mean`), stdV: $(`pav-${id}-std`)
+    };
+  });
+});
+
+// Reset button
+editBody.insertAdjacentHTML('beforeend', '<button class="assume-reset" onclick="resetAssumptions()">Reset to Defaults</button>');
+
+// ═══════════════════════════════════════════════════════
+//  CORE FUNCTIONS
+// ═══════════════════════════════════════════════════════
+function toggle(id) {
+  const panel = $(id);
+  const tog = panel.previousElementSibling;
+  panel.classList.toggle('open');
+  tog.classList.toggle('open');
+}
+
+function resetAssumptions() {
+  classKeys.forEach(cls => {
+    const C = CLASSES[cls];
+    if (aRefs[cls]) {
+      aRefs[cls].mean.value = C.defaultMean;
+      aRefs[cls].std.value = C.defaultStd;
+    }
+    Object.entries(C.subs).forEach(([sk, s]) => {
+      paRefs[cls][sk].mean.value = s.mean;
+      paRefs[cls][sk].std.value = s.std;
+    });
+  });
+  update();
+}
+
+// Get blended profile for a class with sub-types
+function getBlend(cls) {
+  const subs = CLASSES[cls].subs;
+  const sKeys = Object.keys(subs);
+  if (!sKeys.length) {
+    // No subs (cash) — read from direct sliders
+    return { mean: +aRefs[cls].mean.value / 100, std: +aRefs[cls].std.value / 100 };
+  }
+  let totalW = 0, blendMean = 0, blendVar = 0;
+  sKeys.forEach(sk => {
+    const ref = subRefs[cls][sk];
+    if (ref.chk.checked) {
+      const w = +ref.wt.value;
+      totalW += w;
+    }
+  });
+  if (totalW === 0) {
+    const C = CLASSES[cls];
+    return { mean: C.defaultMean / 100, std: C.defaultStd / 100 };
+  }
+  sKeys.forEach(sk => {
+    const ref = subRefs[cls][sk];
+    if (ref.chk.checked) {
+      const w = +ref.wt.value;
+      const nw = w / totalW;
+      const pa = paRefs[cls][sk];
+      const m = +pa.mean.value / 100;
+      const s = +pa.std.value / 100;
+      blendMean += nw * m;
+      blendVar += nw * nw * s * s;
+    }
+  });
+  return { mean: blendMean, std: Math.sqrt(blendVar) };
+}
+
+// ═══════════════════════════════════════════════════════
+//  FAMA-FRENCH FIVE-FACTOR TILTS
+// ═══════════════════════════════════════════════════════
+// Long-run annualized factor premia estimates (%)
+// Sources: Ken French data library, AQR research
+const FACTORS = {
+  mkt: { id: 'f-mkt', premium: 5.0,  vol: 3.0,  label: 'Market' },   // extra equity premium at full tilt
+  smb: { id: 'f-smb', premium: 2.0,  vol: 3.5,  label: 'Size' },     // small-cap premium
+  hml: { id: 'f-hml', premium: 3.0,  vol: 3.0,  label: 'Value' },    // value premium
+  rmw: { id: 'f-rmw', premium: 2.5,  vol: 1.5,  label: 'Profitability' },
+  cma: { id: 'f-cma', premium: 2.0,  vol: 1.0,  label: 'Investment' }
+};
+const factorKeys = Object.keys(FACTORS);
+const factorSliders = {}, factorVals = {};
+factorKeys.forEach(k => {
+  factorSliders[k] = $(FACTORS[k].id);
+  factorVals[k] = $('fv-' + k);
+});
+
+function getFactorAdjustment() {
+  let returnAdj = 0, volAdj = 0;
+  factorKeys.forEach(k => {
+    const tilt = +factorSliders[k].value / 100; // -1 to +1
+    returnAdj += tilt * FACTORS[k].premium;
+    volAdj += Math.abs(tilt) * FACTORS[k].vol;  // vol always adds (absolute)
+  });
+  return { returnAdj, volAdj }; // in percentage points
+}
+
+const fmtDollar = n => {
+  if (Math.abs(n) >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1e3) return '$' + (n/1e3).toFixed(0) + 'K';
+  return '$' + n.toFixed(0);
+};
+const fmtPct = n => n.toFixed(1) + '%';
+
+function gaussRandom() {
+  let u, v, s;
+  do { u = Math.random()*2-1; v = Math.random()*2-1; s = u*u+v*v; } while (s >= 1 || s === 0);
+  return u * Math.sqrt(-2*Math.log(s)/s);
+}
+
+// ═══════════════════════════════════════════════════════
+//  SIMULATION
+// ═══════════════════════════════════════════════════════
+function runSimulation() {
+  const portfolio = +$('portfolio').value;
+  const swrPct = +$('swr').value / 100;
+  const numYears = +$('years').value;
+  const inflationRate = +$('inflation').value / 100;
+
+  const weights = {};
+  let totalAlloc = 0;
+  classKeys.forEach(cls => {
+    weights[cls] = +$(cls).value / 100;
+    totalAlloc += weights[cls];
+  });
+  const norm = totalAlloc > 0 ? totalAlloc : 1;
+  const nw = {};
+  classKeys.forEach(cls => nw[cls] = weights[cls] / norm);
+
+  const profiles = {};
+  classKeys.forEach(cls => profiles[cls] = getBlend(cls));
+
+  // Apply factor tilts to stocks
+  const fa = getFactorAdjustment();
+  profiles.stocks = {
+    mean: profiles.stocks.mean + fa.returnAdj / 100,
+    std:  profiles.stocks.std  + fa.volAdj / 100
+  };
+
+  const allPaths = [], endBalances = [], worstYears = [];
+  let successes = 0;
+
+  for (let t = 0; t < NUM_TRIALS; t++) {
+    let bal = portfolio;
+    const path = [bal];
+    let worstReturn = Infinity;
+    let survived = true;
+
+    for (let y = 0; y < numYears; y++) {
+      let portReturn = 0;
+      classKeys.forEach(cls => {
+        const p = profiles[cls];
+        portReturn += nw[cls] * (p.mean + p.std * gaussRandom());
+      });
+      worstReturn = Math.min(worstReturn, portReturn);
+      const withdrawal = portfolio * swrPct * Math.pow(1 + inflationRate, y);
+      bal = bal * (1 + portReturn) - withdrawal;
+      if (bal <= 0) { bal = 0; survived = false; path.push(0); for (let r = y+2; r <= numYears; r++) path.push(0); break; }
+      path.push(bal);
+    }
+    allPaths.push(path); endBalances.push(bal); worstYears.push(worstReturn);
+    if (survived) successes++;
+  }
+
+  const sorted = [...endBalances].map((b, i) => ({ bal: b, worst: worstYears[i] })).sort((a,b) => a.bal - b.bal);
+  const pctile = p => sorted[Math.floor(p * NUM_TRIALS / 100)];
+  const pathsByYear = [];
+  for (let y = 0; y <= numYears; y++) {
+    const yv = allPaths.map(p => p[y]).sort((a,b) => a - b);
+    pathsByYear.push({ p10: yv[Math.floor(.10*NUM_TRIALS)], p25: yv[Math.floor(.25*NUM_TRIALS)], p50: yv[Math.floor(.50*NUM_TRIALS)], p75: yv[Math.floor(.75*NUM_TRIALS)], p90: yv[Math.floor(.90*NUM_TRIALS)] });
+  }
+  return {
+    successRate: (successes/NUM_TRIALS)*100, medianEnd: pctile(50).bal, withdrawal: portfolio*swrPct,
+    numYears, pathsByYear, inflationRate,
+    scenarios: [
+      { label: '10th (Poor)', ...pctile(10) }, { label: '25th', ...pctile(25) },
+      { label: '50th (Median)', ...pctile(50) }, { label: '75th', ...pctile(75) },
+      { label: '90th (Strong)', ...pctile(90) }
+    ]
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+//  CHART
+// ═══════════════════════════════════════════════════════
+function drawChart(data) {
+  const canvas = $('chart'), ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio||1, rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width*dpr; canvas.height = rect.height*dpr; ctx.scale(dpr,dpr);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0,0,W,H);
+  const pad = {top:20,right:20,bottom:35,left:65}, cw = W-pad.left-pad.right, ch = H-pad.top-pad.bottom;
+  const maxVal = Math.max(...data.pathsByYear.map(d=>d.p90))*1.05;
+  const xS = i => pad.left+(i/data.numYears)*cw, yS = v => pad.top+ch-(v/maxVal)*ch;
+  ctx.strokeStyle='#2a2d3a'; ctx.lineWidth=1;
+  ctx.font='11px -apple-system, sans-serif'; ctx.fillStyle='#6b7280'; ctx.textAlign='right';
+  for(let i=0;i<=5;i++){const v=(maxVal/5)*i,y=yS(v);ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();ctx.fillText(fmtDollar(v),pad.left-8,y+4);}
+  ctx.textAlign='center'; const xStep=data.numYears<=20?5:10;
+  for(let i=0;i<=data.numYears;i+=xStep) ctx.fillText('Yr '+i,xS(i),H-pad.bottom+20);
+  function fillBand(k1,k2,c){ctx.fillStyle=c;ctx.beginPath();for(let i=0;i<=data.numYears;i++)ctx.lineTo(xS(i),yS(data.pathsByYear[i][k1]));for(let i=data.numYears;i>=0;i--)ctx.lineTo(xS(i),yS(data.pathsByYear[i][k2]));ctx.closePath();ctx.fill();}
+  fillBand('p10','p90','rgba(99,102,241,0.08)'); fillBand('p25','p75','rgba(99,102,241,0.15)');
+  ctx.strokeStyle='#6366f1'; ctx.lineWidth=2.5; ctx.beginPath();
+  for(let i=0;i<=data.numYears;i++){const x=xS(i),y=yS(data.pathsByYear[i].p50);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}ctx.stroke();
+  ctx.strokeStyle='rgba(239,68,68,0.4)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(pad.left,yS(0));ctx.lineTo(W-pad.right,yS(0));ctx.stroke();ctx.setLineDash([]);
+  ctx.font='11px -apple-system, sans-serif'; const lx=pad.left+10;
+  ctx.fillStyle='#6366f1';ctx.fillRect(lx,pad.top+4,16,3);
+  ctx.fillStyle='#9ca3af';ctx.textAlign='left';ctx.fillText('Median',lx+22,pad.top+10);
+  ctx.fillStyle='rgba(99,102,241,0.15)';ctx.fillRect(lx+80,pad.top+2,12,8);
+  ctx.fillStyle='#9ca3af';ctx.fillText('25th\u201375th',lx+98,pad.top+10);
+  ctx.fillStyle='rgba(99,102,241,0.08)';ctx.fillRect(lx+175,pad.top+2,12,8);
+  ctx.fillStyle='#9ca3af';ctx.fillText('10th\u201390th',lx+193,pad.top+10);
+}
+
+// ═══════════════════════════════════════════════════════
+//  UPDATE
+// ═══════════════════════════════════════════════════════
+function update() {
+  const sVal=+$('stocks').value, bVal=+$('bonds').value, pVal=+$('privates').value, cVal=+$('cash').value;
+  const total = sVal+bVal+pVal+cVal;
+
+  $('v-portfolio').textContent = fmtDollar(+$('portfolio').value);
+  $('v-swr').textContent = fmtPct(+$('swr').value);
+  $('v-years').textContent = $('years').value;
+  $('v-inflation').textContent = fmtPct(+$('inflation').value);
+  $('v-stocks').textContent = sVal+'%'; $('v-bonds').textContent = bVal+'%';
+  $('v-privates').textContent = pVal+'%'; $('v-cash').textContent = cVal+'%';
+
+  const bs = total>0?100/total:1;
+  $('bar-stocks').style.width = (sVal*bs)+'%'; $('bar-bonds').style.width = (bVal*bs)+'%';
+  $('bar-privates').style.width = (pVal*bs)+'%'; $('bar-cash').style.width = (cVal*bs)+'%';
+
+  // Sub-type displays
+  classKeys.forEach(cls => {
+    Object.keys(CLASSES[cls].subs).forEach(sk => {
+      const r = subRefs[cls][sk];
+      r.pct.textContent = r.wt.value+'%';
+      const off = !r.chk.checked;
+      r.wt.disabled = off; r.wt.style.opacity = off?'.3':'1'; r.pct.style.opacity = off?'.3':'1';
+    });
+  });
+
+  // Assumption display values
+  classKeys.forEach(cls => {
+    if (aRefs[cls]) {
+      aRefs[cls].meanV.textContent = (+aRefs[cls].mean.value).toFixed(1)+'%';
+      aRefs[cls].stdV.textContent = (+aRefs[cls].std.value).toFixed(1)+'%';
+    }
+    Object.keys(CLASSES[cls].subs).forEach(sk => {
+      const r = paRefs[cls][sk];
+      r.meanV.textContent = (+r.mean.value).toFixed(1)+'%';
+      r.stdV.textContent = (+r.std.value).toFixed(1)+'%';
+    });
+  });
+
+  // Summary table
+  classKeys.forEach(cls => {
+    const bl = getBlend(cls);
+    $(`td-${cls}-mean`).textContent = (bl.mean*100).toFixed(1)+'%';
+    $(`td-${cls}-std`).textContent = (bl.std*100).toFixed(1)+'%';
+  });
+
+  // Factor tilt displays
+  factorKeys.forEach(k => {
+    const v = +factorSliders[k].value;
+    factorVals[k].textContent = (v > 0 ? '+' : '') + v + '%';
+    factorVals[k].style.color = v === 0 ? 'var(--muted)' : v > 0 ? 'var(--green)' : 'var(--red)';
+  });
+  const fa = getFactorAdjustment();
+  const fiReturn = $('fi-return'), fiVol = $('fi-vol');
+  fiReturn.textContent = (fa.returnAdj >= 0 ? '+' : '') + fa.returnAdj.toFixed(1) + '%';
+  fiReturn.style.color = fa.returnAdj === 0 ? 'var(--muted)' : fa.returnAdj > 0 ? 'var(--green)' : 'var(--red)';
+  fiVol.textContent = '+' + fa.volAdj.toFixed(1) + '%';
+  fiVol.style.color = fa.volAdj === 0 ? 'var(--muted)' : 'var(--amber)';
+
+  // Total warning
+  const tEl = $('alloc-total-value'); tEl.textContent = total+'%';
+  tEl.style.color = total===100?'var(--green)':'var(--red)';
+  const w = $('alloc-warning'), wt = $('alloc-warning-text');
+  if(total!==100){w.classList.add('visible'); wt.textContent = total<100?`Allocation totals ${total}% — ${100-total}% unallocated. Results normalized.`:`Allocation totals ${total}% — ${total-100}% over. Results normalized.`;}
+  else w.classList.remove('visible');
+
+  const data = runSimulation();
+  const sr=data.successRate, srEl=$('r-success');
+  srEl.textContent=sr.toFixed(1)+'%'; srEl.className='stat-value '+(sr>=90?'success':sr>=70?'warning':'danger');
+  const realMedian = data.medianEnd/Math.pow(1+data.inflationRate,data.numYears);
+  $('r-median').textContent=fmtDollar(data.medianEnd); $('r-median-real').textContent=fmtDollar(realMedian)+' real';
+  $('r-withdrawal').textContent=fmtDollar(data.withdrawal);
+
+  const tbody=$('scenario-body'); tbody.innerHTML='';
+  for(const s of data.scenarios){const tr=document.createElement('tr');tr.innerHTML=`<td>${s.label}</td><td>${fmtDollar(s.bal)}</td><td>${(s.worst*100).toFixed(1)}%</td><td>${s.bal<=0?'<span style="color:var(--red)">Yes</span>':'<span style="color:var(--green)">No</span>'}</td>`;tbody.appendChild(tr);}
+  drawChart(data);
+}
+
+// ═══════════════════════════════════════════════════════
+//  ALLOCATION AUTO-REBALANCE
+// ═══════════════════════════════════════════════════════
+const allocIds = ['stocks', 'bonds', 'privates', 'cash'];
+
+// Sum enabled sub-type sliders for a class
+function subsSum(cls) {
+  let sum = 0;
+  Object.keys(CLASSES[cls].subs).forEach(sk => {
+    if (subRefs[cls][sk].chk.checked) sum += +subRefs[cls][sk].wt.value;
+  });
+  return sum;
+}
+
+// Rebalance OTHER parent sliders when one parent changes
+function rebalancePeers(changedId) {
+  const newVal = +$(changedId).value;
+  const remaining = 100 - newVal;
+  const others = allocIds.filter(id => id !== changedId);
+  const othersSum = others.reduce((s, id) => s + (+$(id).value), 0);
+
+  if (othersSum === 0) {
+    const each = Math.floor(remaining / others.length);
+    let leftover = remaining - each * others.length;
+    others.forEach(id => {
+      const v = each + (leftover > 0 ? 1 : 0);
+      if (leftover > 0) leftover--;
+      $(id).value = v;
+      scaleSubsToParent(id);
+    });
+  } else {
+    const scale = remaining / othersSum;
+    let distributed = 0;
+    others.forEach((id, i) => {
+      if (i === others.length - 1) {
+        $(id).value = Math.max(0, remaining - distributed);
+      } else {
+        const v = Math.max(0, Math.round((+$(id).value) * scale));
+        $(id).value = v;
+        distributed += v;
+      }
+      scaleSubsToParent(id);
+    });
+  }
+}
+
+// Scale a class's sub-type sliders proportionally to match its parent value
+function scaleSubsToParent(cls) {
+  const sKeys = Object.keys(CLASSES[cls].subs);
+  if (!sKeys.length) return;
+  const parentVal = +$(cls).value;
+  const currentSum = subsSum(cls);
+  if (currentSum === 0) return; // avoid division by zero
+  const scale = parentVal / currentSum;
+  let distributed = 0;
+  const enabled = sKeys.filter(sk => subRefs[cls][sk].chk.checked);
+  enabled.forEach((sk, i) => {
+    if (i === enabled.length - 1) {
+      subRefs[cls][sk].wt.value = Math.max(0, parentVal - distributed);
+    } else {
+      const v = Math.max(0, Math.round((+subRefs[cls][sk].wt.value) * scale));
+      subRefs[cls][sk].wt.value = v;
+      distributed += v;
+    }
+  });
+}
+
+// Called when a PARENT slider is dragged directly
+function onParentChange(cls) {
+  scaleSubsToParent(cls);
+  rebalancePeers(cls);
+  update();
+}
+
+// Called when a SUB-TYPE slider or checkbox changes
+function onSubChange(cls) {
+  // Update parent to match sum of enabled subs
+  const newParent = subsSum(cls);
+  $(cls).value = newParent;
+  // Rebalance other parent classes
+  rebalancePeers(cls);
+  update();
+}
+
+// ═══════════════════════════════════════════════════════
+//  EVENT WIRING
+// ═══════════════════════════════════════════════════════
+allocIds.forEach(id => $(id).addEventListener('input', () => onParentChange(id)));
+['portfolio','swr','years','inflation'].forEach(id => $(id).addEventListener('input', update));
+classKeys.forEach(cls => {
+  Object.keys(CLASSES[cls].subs).forEach(sk => {
+    subRefs[cls][sk].wt.addEventListener('input', () => onSubChange(cls));
+    subRefs[cls][sk].chk.addEventListener('change', () => onSubChange(cls));
+  });
+  if (aRefs[cls]) { aRefs[cls].mean.addEventListener('input', update); aRefs[cls].std.addEventListener('input', update); }
+  Object.keys(paRefs[cls]).forEach(sk => {
+    paRefs[cls][sk].mean.addEventListener('input', update);
+    paRefs[cls][sk].std.addEventListener('input', update);
+  });
+});
+factorKeys.forEach(k => factorSliders[k].addEventListener('input', update));
+window.addEventListener('resize', update);
+update();
+</script>
+</body>
+</html>
